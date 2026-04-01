@@ -1,107 +1,137 @@
-# Backtester
+# backtester
 
-A lightweight web app that lets you describe a trading strategy in plain English, have Gemini write the code, and immediately backtest it against your own CSV price data.
+**backtester** is a lightweight web app for turning a plain-English trading idea into executable strategy logic and immediate historical backtest results. The core interaction is simple: describe a strategy in natural language, let the model translate it into Python, and run it against local CSV price data without leaving the browser.
 
-![screenshot placeholder](img1.png)
-![screenshot placeholder](img2.png)
+The repository is best read as a compact product prototype rather than a finance library. Its value lies in the full loop from **natural-language strategy specification** to **code generation**, **simulation**, and **interactive result presentation**.
 
-## Features
+![Backtester interface](img1.png)
+![Backtester results view](img2.png)
 
-- **Natural-language strategies** — describe what you want (e.g. *"buy when the 10-day MA crosses above the 50-day MA"*) and Gemini 2.5 Flash generates the Python logic
-- **Instant backtesting** — runs against any CSV datasets you drop in the `data/` folder
-- **Date subsetting** — restrict the backtest to any date range without modifying your data
-- **Metrics** — total return, CAGR, max drawdown, Sharpe ratio, win rate, and a full trade log
-- **Equity curve chart** — per-symbol Chart.js visualisation
-- **Token tally** — live in/out/total Gemini token counter for the session
+| Repository focus | Description |
+|---|---|
+| Product idea | Plain-English strategy creation with immediate backtesting |
+| Input format | Local CSV time-series data supplied by the user |
+| Core output | Generated strategy code, performance metrics, equity curve, and trade log |
+| Technical stack | Python, pandas, browser UI, LLM-assisted code generation |
+| Portfolio value | Shows an end-to-end workflow that combines product design, model integration, and quantitative evaluation |
 
-## Setup
+## What this project demonstrates
 
-**1. Clone and install dependencies**
+Many LLM demos stop at code generation. This project goes one step further by connecting generation to a usable decision loop. A user can describe a strategy, inspect the translated logic, and then evaluate it quantitatively on real price data. That makes the repository a small but clear example of **LLM-assisted analysis tooling** rather than a toy chat interface.
+
+The project also shows a pragmatic engineering style. Instead of requiring a large framework or broker integration, it keeps the workflow local and inspectable: CSVs go in, strategy code is generated under a constrained format, and the app returns standard backtesting metrics together with an equity curve and detailed trade log.
+
+| Capability area | How it appears here |
+|---|---|
+| LLM product integration | Natural-language prompts are converted into structured strategy code |
+| Quantitative evaluation | Strategies are scored with return, CAGR, drawdown, Sharpe, and win-rate metrics |
+| Usable interface design | Dataset selection, date filters, code preview, and result views are all exposed in a simple web UI |
+| Rapid prototyping | The repository packages generation, execution, and reporting in a compact single-project application |
+
+## Core features
+
+| Feature | Why it matters |
+|---|---|
+| Natural-language strategy input | Lets non-programmers express hypotheses without writing indicators by hand |
+| Generated Python logic | Makes the translation from prompt to executable rule transparent |
+| CSV-based backtesting | Keeps the app flexible and easy to test on custom datasets |
+| Date-range filtering | Supports focused evaluation without editing source files |
+| Performance metrics | Summarizes outcome quality beyond raw return |
+| Equity curve and trade log | Makes behavior inspectable rather than opaque |
+| Token usage counter | Surfaces the operational cost of generation during a session |
+
+## Running locally
+
+Install dependencies, add a model key, and start the local server.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**2. Add your Gemini API key**
+Create a `.env` file in the project root:
 
-Create a `.env` file in the project root (already gitignored):
-
+```bash
+GEMINI_KEY="your-key-here"
+GEMINI_MODEL="gemini-2.5-flash"
 ```
-GEMINI_KEY = "your-key-here"
-```
 
-Get a key at [aistudio.google.com](https://aistudio.google.com). Billing must be enabled — the free tier quota is very limited.
-
-**3. Add price data**
-
-Drop one or more CSV files into the `data/` folder. Each file must have at least two columns:
-
-| Column | Notes |
-|--------|-------|
-| `Date` | Any format parseable by pandas (e.g. `2020-01-15`) |
-| `Close` | Adjusted closing price |
-
-The filename (without `.csv`) becomes the dataset name shown in the UI. Two example files are included: `aapl.csv` (Apple) and `sap500.csv` (S&P 500).
-
-**4. Run**
+Then launch the app:
 
 ```bash
 python main.py
 ```
 
-Then open [http://localhost:8000](http://localhost:8000).
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
-## Usage
+## Data format
 
-1. **Select datasets** in the left sidebar (one or more)
-2. Optionally set a **From / To date range** to restrict the backtest window
-3. **Describe your strategy** in the text box — be as specific or vague as you like
-4. Click **Translate to code** to preview what Gemini generates, or go straight to **Run backtest**
-5. Results appear with metrics, an equity curve, and a collapsible trade log
+The app reads one or more CSV files from the `data/` directory. At minimum, each dataset must contain `Date` and `Close` columns.
 
-### Example prompts
+| Column | Requirement | Notes |
+|---|---|---|
+| `Date` | Required | Any format pandas can parse |
+| `Close` | Required | Adjusted or standard close price |
+| `Open`, `High`, `Low`, `Volume` | Optional | Ignored unless strategy logic explicitly uses them |
 
-```
-Buy when the 20-day MA crosses above the 50-day MA, sell when it crosses back below
-```
-```
-Buy when price is 15% above the 90-day low, exit after a 10% trailing drawdown or 60 days
-```
-```
-Buy on new 52-week highs, sell if price falls 8% below the breakout level
-```
+Example format:
 
-## Configuration
-
-| Environment variable | Default | Description |
-|----------------------|---------|-------------|
-| `GEMINI_KEY` | — | Google AI API key (required) |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Any model from `client.models.list()` |
-
-## CSV format
-
-```
+```csv
 Date,Open,High,Low,Close,Volume
 2020-01-02,296.24,300.60,293.98,300.35,33870100
 2020-01-03,297.15,300.58,296.50,297.43,36580700
-...
 ```
 
-Only `Date` and `Close` are required — all other columns are ignored.
+The filename becomes the dataset label shown in the interface.
 
-## How it works
+## Typical usage flow
 
-1. Your description is sent to Gemini with a system prompt that constrains it to produce a `build(df)` function operating on a pandas DataFrame
-2. The returned JSON (`name`, `explanation`, `code`) is parsed and the code is executed in a sandboxed `exec` environment with only `pd` and safe builtins available
-3. The resulting signal column (`1` = buy, `-1` = sell, `0` = hold) drives a simple cash/shares simulator
-4. Metrics and the equity curve are returned to the UI
+A normal session follows a short loop. The user selects one or more datasets, optionally restricts the date range, enters a strategy description, and either previews the generated code or runs the backtest directly. The application then returns a strategy explanation, performance metrics, an equity curve, and the trade history.
+
+| Step | User action |
+|---|---|
+| 1 | Choose one or more CSV datasets |
+| 2 | Optionally set a backtest window |
+| 3 | Enter a strategy in natural language |
+| 4 | Preview the generated code or run the backtest |
+| 5 | Review metrics, charts, and trade-level output |
+
+Example prompts:
+
+```text
+Buy when the 20-day moving average crosses above the 50-day moving average, and sell when it crosses back below.
+```
+
+```text
+Buy when price is 15% above the 90-day low, then exit after a 10% trailing drawdown or after 60 trading days.
+```
+
+```text
+Buy on new 52-week highs and sell if price falls 8% below the breakout level.
+```
+
+## How it works internally
+
+The application asks the model to return structured strategy output, including a `build(df)` function defined over a pandas DataFrame. That code is parsed and executed in a constrained environment, after which the resulting signal stream drives a straightforward cash-and-shares simulator. The output is then rendered back to the interface as metrics, chart data, and trade logs.
+
+This design keeps the generated logic inspectable. The user is not simply asked to trust the model; they can examine the produced strategy code before or alongside the backtest.
+
+| Internal component | Role |
+|---|---|
+| Prompt-to-code translation | Converts plain-English rules into executable strategy logic |
+| Constrained execution path | Loads generated code with limited available objects |
+| Backtest simulator | Applies signals to historical data and tracks portfolio state |
+| Reporting layer | Returns summary metrics, equity curves, and trade records |
 
 ## Project structure
 
-```
+```text
 backtester/
-├── data/               # Drop CSV files here
-├── main.py             # Server, strategy engine, and UI (single file)
+├── data/               # Local CSV datasets for testing strategies
+├── main.py             # Server, UI, generation flow, and backtest logic
 ├── requirements.txt
-└── .env                # Your API keys (gitignored)
+└── .env                # Local API configuration (gitignored)
 ```
+
+## Reading this repository as a portfolio piece
+
+From a portfolio perspective, **backtester** showcases an engineering pattern that appears in many practical AI products: let a user describe intent in natural language, translate that intent into structured executable logic, and then close the loop with quantitative feedback. The repository is intentionally compact, but it demonstrates product thinking, model integration, and evaluation design in a way that is easy to inspect.
